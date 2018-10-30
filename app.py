@@ -5,7 +5,9 @@
 from Tkinter import *
 import Tkinter
 
-#from audio import PiFieldRecorderAudio
+from audio import PiFieldRecorderAudio
+import numpy
+assert numpy
 
 class PiFieldRecorderApp:
     # Frames
@@ -125,7 +127,8 @@ class PiFieldRecorderApp:
             self.input_meters[i].place(relx=0, rely=0, anchor='nw', x=posx, y=posy)
 
             self.input_meters[i].set_color(self.meter_color)
-            self.input_meters[i].set_level(float(i) / 5.0)
+            self.input_meters[i].set_avg_level(float(i) / float(self.audio_channels_in - 1))
+            self.input_meters[i].set_max_level((float(i) + 0.5) / float(self.audio_channels_in - 1))
 
             self.input_meters[i].draw()
 
@@ -147,7 +150,8 @@ class PiFieldRecorderApp:
             self.output_meters[i].place(relx=0, rely=0, anchor='nw', x=posx, y=posy)
 
             self.output_meters[i].set_color(self.meter_color)
-            self.output_meters[i].set_level(float(i) / 7.0)
+            self.output_meters[i].set_avg_level(float(i) / float(self.audio_channels_out - 1))
+            self.output_meters[i].set_max_level((float(i) + 0.5) / float(self.audio_channels_out - 1))
 
             self.output_meters[i].draw()
 
@@ -157,8 +161,8 @@ class PiFieldRecorderApp:
             posx += padding_output_meter_x + self.meter_width
 
         # Initialize Audio
-        #self.audio = PiFieldRecorderAudio(device, buffersize)
-        #self.audio.start()
+        self.audio = PiFieldRecorderAudio(self, 1, 15, 48000, 256)
+        self.audio.start()
 
     def record(self):
         print('Record')
@@ -172,11 +176,24 @@ class PiFieldRecorderApp:
     def play(self):
         print('Play')
 
+    def audio_update(self, audio, avg_levels, max_levels):
+        for i in range(0, min(self.audio_channels_in, len(avg_levels['input']))):
+            self.input_meters[i].set_avg_level(avg_levels['input'][i])
+            self.input_meters[i].set_max_level(max_levels['input'][i])
+            self.input_meters[i].clear()
+            self.input_meters[i].draw()
+
+        for i in range(0, min(self.audio_channels_out, len(avg_levels['output']))):
+            self.output_meters[i].set_avg_level(avg_levels['output'][i])
+            self.output_meters[i].set_max_level(max_levels['output'][i])
+            self.output_meters[i].clear()
+            self.output_meters[i].draw()
+
     def _destroy(self, event):
         self.master.unbind('<Destroy>')
 
         # Deinitialize Audio
-        #self.audio.destroy()
+        self.audio.destroy()
 
 class Meter(Canvas):
     def __init__(self, **kwargs):
@@ -184,15 +201,34 @@ class Meter(Canvas):
         self.bind('<Configure>', self.redraw)
 
         self._color = '#ffffff'
-        self._level = 0
+        self._avg_level = 0.0
+        self._max_level = 0.0
+
+        self.height = self.winfo_reqheight()
+        self.width = self.winfo_reqwidth()
 
     def set_color(self, color='#ffffff'):
         self._color = color
 
-    def set_level(self, level=0):
-        self._level = level
+    def set_avg_level(self, level=0):
+        if level < 0.0:
+            level = 0.0
+        if level > 1.0:
+            level = 1.0
+        self._avg_level = level
+
+    def set_max_level(self, level=0):
+        if level < 0.0:
+            level = 0.0
+        if level > 1.0:
+            level = 1.0
+        self._max_level = level
 
     def redraw(self, event):
+        self.height = self.winfo_reqheight()
+        self.width = self.winfo_reqwidth()
+
+        self.clear()
         self.draw()
 
     def clear(self):
@@ -200,11 +236,13 @@ class Meter(Canvas):
         self.delete(ALL)
 
     def draw(self):
-        self.height = self.winfo_reqheight()
-        self.width = self.winfo_reqwidth()
+        # Draw Average Level
+        avg_pos = int(self.height * (1 - self._avg_level))
+        self.create_rectangle(0, self.height, self.width, avg_pos, fill=self._color)
 
-        # Draw Level
-        self.create_rectangle(0, self.height, self.width, int(self.height * (1 - self._level)), fill=self._color)
+        # Draw Max Level
+        max_pos = int(self.height * (1 - self._max_level))
+        self.create_rectangle(0, max_pos, self.width, max_pos + 3, fill=self._color)
 
 def main():
     root = Tk()
