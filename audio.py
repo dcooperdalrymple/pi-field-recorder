@@ -78,6 +78,13 @@ class PiFieldRecorderAudio(threading.Thread):
     def get_state(self):
         return self._state
 
+    def set_state(self, state='none'):
+        #if self._state == state:
+        #    return False
+        self._state = state
+        self.parent.state_update(self._state)
+        return True
+
     def set_passthrough(self, passthrough=True):
         self._passthrough = passthrough
         return True
@@ -90,20 +97,50 @@ class PiFieldRecorderAudio(threading.Thread):
 
     # Methods
 
-    def play(self, filename):
+    def play(self):
+        if self._state == 'none' or self._state == 'play_pause' or self._state == 'record_pause':
+            if self._state == 'none' or self._state == 'play_pause':
+                self.set_state('play')
+            elif self._state == 'record_pause':
+                self.set_state('record')
+        else:
+            return False
+
+        return True
+
+    def record(self):
         if self._state != 'none':
             return False
-        self._state = 'play'
 
-        self._stop_stream()
+        self.set_state('record')
 
-    def record(self, filename):
         return False
+
+    def pause(self):
+        if self._state == 'none':
+            return False
+
+        if self._state == 'play':
+            self.set_state('play_pause')
+        elif self._state == 'play_pause':
+            self.set_state('play')
+        elif self._state == 'record':
+            self.set_state('record_pause')
+        elif self._state == 'record_pause':
+            self.set_state('record')
+
+        return True
 
     def stop(self):
+        if self._state == 'none':
+            return False
+        self.set_state('none')
         return False
 
-    def load(self, filepath):
+    def load_play(self, filepath):
+        return False
+
+    def load_record(self, filepath):
         return False
 
     def destroy(self):
@@ -162,6 +199,8 @@ class PiFieldRecorderAudio(threading.Thread):
                 self._max_levels[device][i] = max(self._max_levels[device][i] - self._max_interval, 0.0)
 
     def run(self):
+        self.set_state('none') # Send initial state update
+
         print(':: Starting Audio Stream ::')
         with sounddevice.Stream(device=(self.in_device, self.out_device), samplerate=self.samplerate, blocksize=self.blocksize, dtype=self.data_type, channels=self.channels, latency=self.latency, callback=self._audio_callback):
             while True:
