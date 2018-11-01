@@ -1,389 +1,289 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Pi Field Recorder: Battery-operated field recorder designed for use with the Audio Injector Octo and piTFT touch screen.
 
-from Tkinter import *
-import Tkinter
+import urwid
+from audio import Audio
 
-from audio import PiFieldRecorderAudio
+class AppView(urwid.WidgetWrap):
+    # Color Palette
+    palette = [
+        ('window', 'light green', 'black'),
+        ('label', 'light green', 'black'),
+        ('alt label', 'white', 'black'),
+        ('inv label', 'black', 'light green'),
+        ('button normal', 'light green', 'black'),
+        ('button select', 'yellow', 'black'),
+        ('button active', 'light red', 'black'),
+        ('button disabled', 'dark green', 'black'),
+        ('meter low', 'black', 'dark green'),
+        ('meter low smooth', 'dark green', 'black'),
+        ('meter high', 'black', 'light green'),
+        ('meter high smooth', 'light green', 'black'),
+    ]
 
-class PiFieldRecorderApp:
     # Frames
     window_width = 320
     window_height = 240
-    window_bg = '#000000'
 
     controls_height = 96
-    controls_bg = '#000000'
-
     meters_height = 144
-    meters_bg = '#000000' # '#181818'
-    meters_inputs_width = 140
-    meters_outputs_width = 180
-
-    # Labels
-    label_fg = '#00a400' # '#ffffff'
-    label_font_family = 'Monospace'
-    label_font_size = 12
-    label_font_size_small = 8
-    label_font_size_large = 16
 
     # Buttons
     button_width = 64
     button_height = 64
-    button_fg = '#00a400'
-    button_active_fg = '#00e400'
 
-    # Meters
-    meter_label = 18
-    meter_sublabel = 16
-    meter_height = 96
-    meter_width = 16
-    meter_border = 1
-    meter_color = '#00a400'
+    def __init__(self, controller):
+        self.controller = controller
+        urwid.WidgetWrap.__init__(self, self.main_window())
+
+    # GUI Elements
+
+    def meters_control(self):
+        satt = {(1, 0): 'meter low smooth', (2, 0): 'meter high smooth'}
+        w = urwid.BarGraph(['bg', 'meter low', 'meter high'], satt=satt)
+        return w
+
+    def button_control(self, text, action=None):
+        w = AppButton(text, self.on_button, action)
+        w = urwid.Padding(w, ('fixed left', 1), ('fixed right', 1))
+        w = urwid.AttrMap(w, 'button disabled', 'button disabled')
+        return w
+
+    def label_control(self, text):
+        w = urwid.Text(text, align='center')
+        w = urwid.AttrMap(w, 'label')
+        return w
+
+    def set_button(self, w, state):
+        if state == 'normal':
+            w.set_attr_map({None: 'button normal'})
+            w.set_focus_map({None: 'button select'})
+        elif state == 'active':
+            w.set_attr_map({None: 'button active'})
+            w.set_focus_map({None: 'button select'})
+        elif state == 'disabled':
+            w.set_attr_map({None: 'button disabled'})
+            w.set_focus_map({None: 'button dissabled'})
+
+    # Window/Widgets
+
+    def main_window(self):
+        controls = self.build_controls()
+        meters = self.build_meters()
+
+        # Wrap controls
+        w = urwid.Frame(meters, header=controls)
+        w = urwid.AttrMap(w, 'window')
+        return w
+
+    def build_controls(self):
+        self.play_button = self.button_control(u'Play', 'play')
+        self.pause_button = self.button_control(u'Pause', 'pause')
+        self.stop_button = self.button_control(u'Stop', 'stop')
+        self.record_button = self.button_control(u'Record', 'record')
+
+        w = urwid.Columns([self.play_button, self.pause_button, self.stop_button, self.record_button])
+        w = urwid.Padding(w, ('fixed left', 1), ('fixed right', 1))
+        w = urwid.Pile([urwid.Divider(), w, urwid.Divider()])
+        return w
+
+    def build_meters(self):
+        self.input_meters = self.meters_control()
+        self.output_meters = self.meters_control()
+
+        input_frame = urwid.Frame(urwid.WidgetWrap(self.input_meters), header=self.build_meter_title(u'Inputs'), footer=self.build_meter_labels(self.controller.audio_channels_in))
+        input_frame = urwid.LineBox(input_frame)
+
+        output_frame = urwid.Frame(urwid.WidgetWrap(self.output_meters), header=self.build_meter_title(u'Outputs'), footer=self.build_meter_labels(self.controller.audio_channels_out))
+        output_frame = urwid.LineBox(output_frame)
+
+        w = urwid.Columns([input_frame, output_frame])
+        return w
+
+    def build_meter_title(self, title):
+        w = self.label_control(title)
+        w.set_attr_map({None: 'inv label'})
+        w = urwid.Pile([w, urwid.Divider()])
+        return w
+
+    def build_meter_labels(self, count):
+        l = []
+        for i in range(0, count):
+            l.append(self.label_control(str(i + 1)))
+
+        w = urwid.Columns(l)
+        w = urwid.Pile([urwid.Divider(), w])
+        return w
+
+    # Update Events
+
+    def update_state(self, state):
+        if state == 'play':
+            self.set_button(self.play_button, 'active')
+            self.set_button(self.pause_button, 'normal')
+            self.set_button(self.stop_button, 'normal')
+            self.set_button(self.record_button, 'disabled')
+        elif state == 'play_pause':
+            self.set_button(self.play_button, 'active')
+            self.set_button(self.pause_button, 'active')
+            self.set_button(self.stop_button, 'normal')
+            self.set_button(self.record_button, 'disabled')
+        elif state == 'record':
+            self.set_button(self.play_button, 'disabled')
+            self.set_button(self.pause_button, 'normal')
+            self.set_button(self.stop_button, 'normal')
+            self.set_button(self.record_button, 'active')
+        elif state == 'record_pause':
+            self.set_button(self.play_button, 'disabled')
+            self.set_button(self.pause_button, 'active')
+            self.set_button(self.stop_button, 'normal')
+            self.set_button(self.record_button, 'active')
+        elif state == 'none':
+            self.set_button(self.play_button, 'normal')
+            self.set_button(self.pause_button, 'disabled')
+            self.set_button(self.stop_button, 'disabled')
+            self.set_button(self.record_button, 'normal')
+        else:
+            return False
+
+        return True
+
+    def update_levels(self, levels, max_levels):
+        input_data = []
+        for i in range(0, min(self.controller.audio_channels_in, len(levels['input']))):
+            input_data.append([max_levels['input'][i], levels['input'][i]])
+
+        output_data = []
+        for i in range(0, min(self.controller.audio_channels_out, len(levels['output']))):
+            output_data.append([max_levels['output'][i], levels['output'][i]])
+
+        self.input_meters.set_data(input_data, 1.0)
+        self.output_meters.set_data(output_data, 1.0)
+
+        return True
+
+    # Button Events
+
+    def on_button(self, w, action):
+        if action == 'play':
+            self.controller.play()
+        elif action == 'pause':
+            self.controller.pause()
+        elif action == 'stop':
+            self.controller.stop()
+        elif action == 'record':
+            self.controller.record()
+
+class AppController:
 
     # Audio Settings
     audio_channels_in = 6
     audio_channels_out = 8
 
-    def __init__(self, master):
-
-        # Load Assets
-        self.img_button_play = PhotoImage(file="./assets/button-play.gif")
-        self.img_button_play_active = PhotoImage(file="./assets/button-play-active.gif")
-        self.img_button_play_disabled = PhotoImage(file="./assets/button-play-inactive.gif")
-        self.img_button_pause = PhotoImage(file="./assets/button-pause.gif")
-        self.img_button_pause_active = PhotoImage(file="./assets/button-pause-active.gif")
-        self.img_button_pause_disabled = PhotoImage(file="./assets/button-pause-inactive.gif")
-        self.img_button_stop = PhotoImage(file="./assets/button-stop.gif")
-        self.img_button_stop_active = PhotoImage(file="./assets/button-stop-active.gif")
-        self.img_button_stop_disabled = PhotoImage(file="./assets/button-stop-inactive.gif")
-        self.img_button_record = PhotoImage(file="./assets/button-record.gif")
-        self.img_button_record_active = PhotoImage(file="./assets/button-record-active.gif")
-        self.img_button_record_disabled = PhotoImage(file="./assets/button-record-inactive.gif")
-
-        # Set up window
-        self.master = master
-        self.master.title('Pi Field Recorder')
-        self.master.geometry(str(self.window_width) + 'x' + str(self.window_height))
-        self.master.resizable(0, 0)
-        self.master.configure(background=self.window_bg)
-        self.master.bind('<Destroy>', self._destroy)
-
-        # Configure control frame
-        self.controls_frame = Frame(master, bg=self.controls_bg, width=self.window_width, height=self.controls_height)
-        self.controls_frame.place(relx=0, rely=0, anchor='nw', x=0, y=0)
-
-        # Configure and place buttons
-        padding_button = (self.window_width - self.button_width * 4) / 5;
-        posy = (self.controls_height - self.button_height) / 2
-
-        posx = padding_button
-
-        self.play_button = ImageButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
-        self.play_button.set_image(self.img_button_play, 'normal')
-        self.play_button.set_image(self.img_button_play_active, 'active')
-        self.play_button.set_image(self.img_button_play_disabled, 'disabled')
-        self.play_button.set_state('normal')
-        self.play_button.place(relx=0, rely=0, x=posx, y=posy, anchor='nw')
-        self.play_button.bind('<Button-1>', self.play)
-
-        posx += self.button_width + padding_button
-
-        self.pause_button = ImageButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
-        self.pause_button.set_image(self.img_button_pause, 'normal')
-        self.pause_button.set_image(self.img_button_pause_active, 'active')
-        self.pause_button.set_image(self.img_button_pause_disabled, 'disabled')
-        self.pause_button.set_state('normal')
-        self.pause_button.place(relx=0, rely=0, x=posx, y=posy, anchor='nw')
-        self.pause_button.bind('<Button-1>', self.pause)
-
-        posx += self.button_width + padding_button
-
-        self.stop_button = ImageButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
-        self.stop_button.set_image(self.img_button_stop, 'normal')
-        self.stop_button.set_image(self.img_button_stop_active, 'active')
-        self.stop_button.set_image(self.img_button_stop_disabled, 'disabled')
-        self.stop_button.set_state('normal')
-        self.stop_button.place(relx=0, rely=0, x=posx, y=posy, anchor='nw')
-        self.stop_button.bind('<Button-1>', self.stop)
-
-        posx += self.button_width + padding_button
-
-        self.record_button = ImageButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
-        self.record_button.set_image(self.img_button_record, 'normal')
-        self.record_button.set_image(self.img_button_record_active, 'active')
-        self.record_button.set_image(self.img_button_record_disabled, 'disabled')
-        self.record_button.set_state('normal')
-        self.record_button.place(relx=0, rely=0, x=posx, y=posy, anchor='nw')
-        self.record_button.bind('<Button-1>', self.record)
-
-        # Setup Meter Frame
-        self.meter_frame = Frame(master, bg=self.meters_bg, width=self.window_width, height=self.meters_height)
-        self.meter_frame.place(relx=0, rely=0, anchor='nw', x=0, y=self.controls_height)
-
-        # Setup Input/Output Frames (split meter frame into 2)
-        self.input_frame = Frame(master=self.meter_frame, bg=self.meters_bg, width=self.meters_inputs_width, height=self.meters_height)
-        self.input_frame.place(relx=0, rely=0, anchor='nw', x=0, y=0)
-
-        self.output_frame = Frame(master=self.meter_frame, bg=self.meters_bg, width=self.meters_outputs_width, height=self.meters_height)
-        self.output_frame.place(relx=0, rely=0, anchor='nw', x=self.meters_inputs_width, y=0)
-
-        # Setup Labels for Meter Frame
-        self.inputs_label = Label(master=self.input_frame, text='INPUT', fg=self.label_fg, bg=self.meters_bg, font=(self.label_font_family, self.label_font_size))
-        self.inputs_label.place(anchor='center', x=self.meters_inputs_width / 2, y=self.meter_label / 2)
-
-        self.outputs_label = Label(master=self.output_frame, text='OUTPUT', fg=self.label_fg, bg=self.meters_bg, font=(self.label_font_family, self.label_font_size))
-        self.outputs_label.place(anchor='center', x=self.meters_outputs_width / 2, y=self.meter_label / 2)
-
-        # Create Input Meters
-        self.input_meters = []
-        padding_input_meter_x = (self.meters_inputs_width - self.meter_width * self.audio_channels_in) / (self.audio_channels_in + 1);
-        padding_input_meter_y = (self.meters_height - self.meter_label - self.meter_sublabel - self.meter_height) / 2
-
-        posx = padding_input_meter_x
-        posy = padding_input_meter_y + self.meter_label
-        for i in range(0, self.audio_channels_in):
-            self.input_meters.append(Meter(master=self.input_frame, width=self.meter_width, height=self.meter_height, bg=self.window_bg, bd=0, highlightthickness=1, highlightbackground=self.meter_color, relief=FLAT))
-
-            self.input_meters[i].place(relx=0, rely=0, anchor='nw', x=posx, y=posy)
-
-            self.input_meters[i].set_color(self.meter_color)
-            self.input_meters[i].set_avg_level(float(i) / float(self.audio_channels_in - 1))
-            self.input_meters[i].set_max_level((float(i) + 0.5) / float(self.audio_channels_in - 1))
-
-            self.input_meters[i].draw()
-
-            input_label = Label(master=self.input_frame, text=str(i + 1), fg=self.label_fg, bg=self.meters_bg, font=(self.label_font_family, self.label_font_size_small))
-            input_label.place(anchor='center', x=posx + self.meter_width / 2, y=posy + self.meter_height + padding_input_meter_y + self.meter_sublabel / 2)
-
-            posx += padding_input_meter_x + self.meter_width
-
-        # Create Output Meters
-        self.output_meters = []
-        padding_output_meter_x = (self.meters_outputs_width - self.meter_width * self.audio_channels_out) / (self.audio_channels_out + 1);
-        padding_output_meter_y = (self.meters_height - self.meter_label - self.meter_sublabel - self.meter_height) / 2
-
-        posx = padding_output_meter_x
-        posy = padding_output_meter_y + self.meter_label
-        for i in range(0, self.audio_channels_out):
-            self.output_meters.append(Meter(master=self.output_frame, width=self.meter_width, height=self.meter_height, bg=self.window_bg, bd=0, highlightthickness=1, highlightbackground=self.meter_color, relief=FLAT))
-
-            self.output_meters[i].place(relx=0, rely=0, anchor='nw', x=posx, y=posy)
-
-            self.output_meters[i].set_color(self.meter_color)
-            self.output_meters[i].set_avg_level(float(i) / float(self.audio_channels_out - 1))
-            self.output_meters[i].set_max_level((float(i) + 0.5) / float(self.audio_channels_out - 1))
-
-            self.output_meters[i].draw()
-
-            output_label = Label(master=self.output_frame, text=str(i + 1), fg=self.label_fg, bg=self.meters_bg, font=(self.label_font_family, self.label_font_size_small))
-            output_label.place(anchor='center', x=posx + self.meter_width / 2, y=posy + self.meter_height + padding_output_meter_y + self.meter_sublabel / 2)
-
-            posx += padding_output_meter_x + self.meter_width
-
+    def __init__(self):
         # Initialize Audio
-        self.audio = PiFieldRecorderAudio(self, 1, 15, 48000, 256)
+        self.audio = Audio(self, 0, 0, 44100, 256)
         self.audio.start()
 
-    # Button Events
+        # Initialize App Window
+        self.view = AppView(self)
+        self.initial_view()
 
-    def play(self, event):
-        if self.play_button.get_state() == 'disabled':
-            return
-        self.audio.play()
+    def run(self):
+        self.loop = urwid.MainLoop(self.view, self.view.palette, unhandled_input=self.key_input)
+        self.loop.run()
 
-    def pause(self, event):
-        if self.pause_button.get_state() == 'disabled':
-            return
-        self.audio.pause()
+    def initial_view(self):
+        self.view.update_state('none')
 
-    def stop(self, event):
-        if self.stop_button.get_state() == 'disabled':
-            return
-        self.audio.stop()
+        levels = {'input': [], 'output': []}
+        max_levels = {'input': [], 'output': []}
+        for i in range(0, self.audio_channels_in):
+            levels['input'].append(float(i + 1) / float(self.audio_channels_in + 1))
+            max_levels['input'].append(float(i + 1) / float(self.audio_channels_in))
+        for i in range(0, self.audio_channels_out):
+            levels['output'].append(float(i + 1) / float(self.audio_channels_out + 1))
+            max_levels['output'].append(float(i + 1) / float(self.audio_channels_out))
 
-    def record(self, event):
-        if self.record_button.get_state() == 'disabled':
-            return
-        self.audio.record()
+        self.view.update_levels(levels, max_levels)
 
-    # Audio Updates
+    def key_input(self, key):
+        if key in ('q', 'Q', 'esc'):
+            self.exit()
+
+    # Audio Wrapper Methods
+
+    def play(self):
+        return self.audio.play()
+
+    def pause(self):
+        return self.audio.pause()
+
+    def stop(self):
+        return self.audio.stop()
+
+    def record(self):
+        return self.audio.record()
+
+    # Audio Events
 
     def state_update(self, state):
-        print(state)
-        if state == 'play':
-            self.play_button.set_state('active')
-            self.pause_button.set_state('normal')
-            self.stop_button.set_state('normal')
-            self.record_button.set_state('disabled')
-        elif state == 'play_pause':
-            self.play_button.set_state('active')
-            self.pause_button.set_state('active')
-            self.stop_button.set_state('normal')
-            self.record_button.set_state('disabled')
-        elif state == 'record':
-            self.play_button.set_state('disabled')
-            self.pause_button.set_state('normal')
-            self.stop_button.set_state('normal')
-            self.record_button.set_state('active')
-        elif state == 'record_pause':
-            self.play_button.set_state('disabled')
-            self.pause_button.set_state('active')
-            self.stop_button.set_state('normal')
-            self.record_button.set_state('active')
-        elif state == 'none':
-            self.play_button.set_state('normal')
-            self.pause_button.set_state('disabled')
-            self.stop_button.set_state('disabled')
-            self.record_button.set_state('normal')
+        self.view.update_state(state)
 
-    def audio_update(self, audio, avg_levels, max_levels):
-        for i in range(0, min(self.audio_channels_in, len(avg_levels['input']))):
-            self.input_meters[i].set_avg_level(avg_levels['input'][i])
-            self.input_meters[i].set_max_level(max_levels['input'][i])
-            self.input_meters[i].draw()
+    def audio_update(self, avg_levels, max_levels):
+        self.view.update_levels(avg_levels, max_levels)
 
-        for i in range(0, min(self.audio_channels_out, len(avg_levels['output']))):
-            self.output_meters[i].set_avg_level(avg_levels['output'][i])
-            self.output_meters[i].set_max_level(max_levels['output'][i])
-            self.output_meters[i].draw()
+    # Window Methods
 
-    def _destroy(self, event):
-        self.master.unbind('<Destroy>')
+    def update(self):
+        self.loop.draw_screen()
 
+    def exit(self):
         # Deinitialize Audio
         self.audio.destroy()
 
-class ImageButton(Canvas):
-    def __init__(self, **kwargs):
-        Canvas.__init__(self, **kwargs)
+        # Stop Urwid Loop
+        raise urwid.ExitMainLoop()
 
-        self._state = False
+class AppButton(urwid.WidgetWrap):
+    _border_char = u'─'
+    def __init__(self, label, on_press=None, user_data=None):
+        min_width = 12
+        padding_size = (min_width - len(label)) / 2
+        if padding_size < 0:
+            padding_size = 0
 
-        self._image_normal = False
-        self._image_active = False
-        self._image_disabled = False
+        border = self._border_char * (len(label) + padding_size * 2)
+        cursor_position = len(border) + padding_size
 
-        self._image_id = False
+        self.top = u'┌' + border + u'┐\n'
+        self.middle = u'│' + (u' ' * padding_size) + label + (u' ' * padding_size) + u'│\n'
+        self.bottom = u'└' + border + u'┘'
 
-        self.height = self.winfo_reqheight()
-        self.width = self.winfo_reqwidth()
+        self.widget = urwid.Pile([
+            urwid.Text(self.top[:-1]),
+            urwid.Text(self.middle[:-1]),
+            urwid.Text(self.bottom),
+        ])
 
-    def set_state(self, state='normal'):
-        if self._state == state:
-            return
-        self._state = state
-        self.draw()
+        # Hidden button hack
+        self._hidden_button = urwid.Button('hidden %s' % label, on_press, user_data)
 
-    def get_state(self):
-        return self._state
+        super(AppButton, self).__init__(self.widget)
 
-    def set_image(self, image, state):
-        if state == 'normal':
-            self._image_normal = image
-        elif state == 'active':
-            self._image_active = image
-        elif state == 'disabled':
-            self._image_disabled = image
-
-    def draw(self):
-        self._clear()
-        self._draw()
-
-    def _clear(self):
-        if self._image_id != None and self._image_id != False:
-            self.delete(self._image_id)
-            self._image_id = False
-
-    def _draw(self):
-        image = False
-        if self._state == 'normal' and self._image_normal != False:
-            image = self._image_normal
-        elif self._state == 'active' and self._image_active != False:
-            image = self._image_active
-        elif self._state == 'disabled' and self._image_disabled != False:
-            image = self._image_disabled
-
-        if image == False:
-            return False
-
-        try:
-
-            # Draw Image
-            self._image_id = self.create_image((self.width / 2, self.height / 2), image=image, state=NORMAL, anchor=CENTER)
-
-        except:
-            print('Failed to render ImageButton')
-            return False
-
+    def selectable(self):
         return True
 
-class Meter(Canvas):
-    def __init__(self, **kwargs):
-        Canvas.__init__(self, **kwargs)
+    def keypress(self, *args, **kw):
+        return self._hidden_button.keypress(*args, **kw)
 
-        self._color = '#ffffff'
-        self._avg_level = 0.0
-        self._max_level = 0.0
-
-        self._avg_rectangle_id = False
-        self._max_rectangle_id = False
-
-        self.height = self.winfo_reqheight()
-        self.width = self.winfo_reqwidth()
-
-    def set_color(self, color='#ffffff'):
-        self._color = color
-
-    def set_avg_level(self, level=0):
-        if level < 0.0:
-            level = 0.0
-        if level > 1.0:
-            level = 1.0
-        self._avg_level = level
-
-    def set_max_level(self, level=0):
-        if level < 0.0:
-            level = 0.0
-        if level > 1.0:
-            level = 1.0
-        self._max_level = level
-
-    def draw(self):
-        self._clear()
-        self._draw()
-
-    def _clear(self):
-        # Delete all existing items
-        if self._avg_rectangle_id != None and self._avg_rectangle_id != False:
-            self.delete(self._avg_rectangle_id)
-            self._avg_rectangle_id = False
-        if self._max_rectangle_id != None and self._max_rectangle_id != False:
-            self.delete(self._max_rectangle_id)
-            self._max_rectangle_id = False
-
-    def _draw(self):
-        try:
-
-            # Draw Average Level
-            avg_pos = int(self.height * (1 - self._avg_level))
-            self._avg_rectangle_id = self.create_rectangle(0, self.height, self.width, avg_pos, fill=self._color)
-
-            # Draw Max Level
-            max_pos = int(self.height * (1 - self._max_level))
-            self._max_rectangle_id = self.create_rectangle(0, max_pos, self.width, max_pos + 3, fill=self._color)
-
-        except:
-            print('Failed to render Meter')
-            return False
-
-        return True
+    def mouse_event(self, *args, **kw):
+        return self._hidden_button.mouse_event(*args, **kw)
 
 def main():
-    root = Tk()
-    app = PiFieldRecorderApp(root)
-    root.mainloop()
+    AppController().run()
 
 if __name__ == '__main__':
     main()

@@ -11,7 +11,7 @@ import numpy
 assert numpy
 import math
 
-class PiFieldRecorderAudio(threading.Thread):
+class Audio(threading.Thread):
     # Default Device Settings
     log_offset = 0.1
     log_scale = 0.96025
@@ -20,7 +20,7 @@ class PiFieldRecorderAudio(threading.Thread):
 
     def __init__(self, parent, in_device=0, out_device=0, samplerate=False, blocksize=False):
         self.parent = parent
-        super(PiFieldRecorderAudio, self).__init__()
+        super(Audio, self).__init__()
 
         # Query Devices
         self._print_devices()
@@ -177,7 +177,7 @@ class PiFieldRecorderAudio(threading.Thread):
         self._calculate_maxes('input')
         self._calculate_maxes('output')
 
-        self.parent.audio_update(self, self._avg_levels, self._max_levels)
+        self.parent.audio_update(self._avg_levels, self._max_levels)
 
     def _calculate_level(self, data):
         linear = numpy.max(numpy.abs(data))
