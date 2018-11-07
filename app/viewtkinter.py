@@ -16,17 +16,20 @@ class AppViewTkinter(AppView):
     meters_bg = '#000000' # '#181818'
     meters_inputs_width = 140
     meters_outputs_width = 180
+
     # Labels
     label_fg = '#00a400' # '#ffffff'
     label_font_family = 'Monospace'
     label_font_size = 12
     label_font_size_small = 8
     label_font_size_large = 16
+
     # Buttons
     button_width = 64
     button_height = 64
     button_fg = '#00a400'
     button_active_fg = '#00e400'
+
     # Meters
     meter_label = 18
     meter_sublabel = 16
@@ -34,6 +37,7 @@ class AppViewTkinter(AppView):
     meter_width = 16
     meter_border = 1
     meter_color = '#00a400'
+
     # Audio Settings
     audio_channels_in = 6
     audio_channels_out = 8
@@ -68,12 +72,12 @@ class AppViewTkinter(AppView):
         self.controls_frame.place(relx=0, rely=0, anchor='nw', x=0, y=0)
 
         # Configure and place buttons
-        padding_button = (self.window_width - self.button_width * 4) / 5;
+        padding_button = (self.window_width - self.button_width * 4) / 5
         posy = (self.controls_height - self.button_height) / 2
 
         posx = padding_button
 
-        self.play_button = ImageButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
+        self.play_button = TkinterButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
         self.play_button.set_image(self.img_button_play, 'normal')
         self.play_button.set_image(self.img_button_play_active, 'active')
         self.play_button.set_image(self.img_button_play_disabled, 'disabled')
@@ -83,7 +87,7 @@ class AppViewTkinter(AppView):
 
         posx += self.button_width + padding_button
 
-        self.pause_button = ImageButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
+        self.pause_button = TkinterButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
         self.pause_button.set_image(self.img_button_pause, 'normal')
         self.pause_button.set_image(self.img_button_pause_active, 'active')
         self.pause_button.set_image(self.img_button_pause_disabled, 'disabled')
@@ -93,7 +97,7 @@ class AppViewTkinter(AppView):
 
         posx += self.button_width + padding_button
 
-        self.stop_button = ImageButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
+        self.stop_button = TkinterButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
         self.stop_button.set_image(self.img_button_stop, 'normal')
         self.stop_button.set_image(self.img_button_stop_active, 'active')
         self.stop_button.set_image(self.img_button_stop_disabled, 'disabled')
@@ -103,7 +107,7 @@ class AppViewTkinter(AppView):
 
         posx += self.button_width + padding_button
 
-        self.record_button = ImageButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
+        self.record_button = TkinterButton(master=self.controls_frame, width=self.button_width, height=self.button_height, bg=self.controls_bg, bd=0, highlightthickness=0, highlightbackground=self.controls_bg, relief=FLAT)
         self.record_button.set_image(self.img_button_record, 'normal')
         self.record_button.set_image(self.img_button_record_active, 'active')
         self.record_button.set_image(self.img_button_record_disabled, 'disabled')
@@ -137,7 +141,7 @@ class AppViewTkinter(AppView):
         posx = padding_input_meter_x
         posy = padding_input_meter_y + self.meter_label
         for i in range(0, self.controller.audio_channels_in):
-            self.input_meters.append(Meter(master=self.input_frame, width=self.meter_width, height=self.meter_height, bg=self.window_bg, bd=0, highlightthickness=1, highlightbackground=self.meter_color, relief=FLAT))
+            self.input_meters.append(TkinterMeter(master=self.input_frame, width=self.meter_width, height=self.meter_height, bg=self.window_bg, bd=0, highlightthickness=1, highlightbackground=self.meter_color, relief=FLAT))
 
             self.input_meters[i].place(relx=0, rely=0, anchor='nw', x=posx, y=posy)
 
@@ -160,7 +164,7 @@ class AppViewTkinter(AppView):
         posx = padding_output_meter_x
         posy = padding_output_meter_y + self.meter_label
         for i in range(0, self.controller.audio_channels_out):
-            self.output_meters.append(Meter(master=self.output_frame, width=self.meter_width, height=self.meter_height, bg=self.window_bg, bd=0, highlightthickness=1, highlightbackground=self.meter_color, relief=FLAT))
+            self.output_meters.append(TkinterMeter(master=self.output_frame, width=self.meter_width, height=self.meter_height, bg=self.window_bg, bd=0, highlightthickness=1, highlightbackground=self.meter_color, relief=FLAT))
 
             self.output_meters[i].place(relx=0, rely=0, anchor='nw', x=posx, y=posy)
 
@@ -177,6 +181,9 @@ class AppViewTkinter(AppView):
 
     def run(self):
         self.master.mainloop()
+
+    def update(self):
+        return
 
     # Button Events
 
@@ -253,7 +260,7 @@ class AppViewTkinter(AppView):
     def destroy(self):
         self.master.quit()
 
-class ImageButton(Canvas):
+class TkinterButton(Canvas):
     def __init__(self, **kwargs):
         Canvas.__init__(self, **kwargs)
 
@@ -312,12 +319,12 @@ class ImageButton(Canvas):
             self._image_id = self.create_image((self.width / 2, self.height / 2), image=image, state=NORMAL, anchor=CENTER)
 
         except:
-            print('Failed to render ImageButton')
+            print('Failed to render TkinterButton')
             return False
 
         return True
 
-class Meter(Canvas):
+class TkinterMeter(Canvas):
     def __init__(self, **kwargs):
         Canvas.__init__(self, **kwargs)
 

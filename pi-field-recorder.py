@@ -4,9 +4,9 @@ from app.controller import AppController
 
 from app.viewurwid import AppViewUrwid # Terminal UI
 from app.viewtkinter import AppViewTkinter # Window UI
-#from app.viewpygame import AppViewPygame # SDL UI
+from app.viewpygame import AppViewPygame # SDL UI
 
-view = AppViewUrwid
+view = AppViewPygame
 
 def main():
     AppController(view).run()

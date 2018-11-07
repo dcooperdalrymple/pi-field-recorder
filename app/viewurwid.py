@@ -5,6 +5,7 @@ import urwid
 from app.view import AppView
 
 class AppViewUrwid(AppView):
+    
     # Color Palette
     palette = [
         ('window', 'light green', 'black'),
