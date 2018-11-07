@@ -41,14 +41,40 @@ class AppViewPygame(AppView):
         AppView.__init__(self, controller)
         self._destroy = False
 
+        # Check pygame libraries
         if not pygame.font: print 'Warning: Fonts disabled'
-        #if not pygame.mixer: print 'Warning: Sound disabled'
+
+        # Get Display Number
+        disp_no = os.getenv("DISPLAY")
+        if disp_no:
+            print "Running under X display = {0}".format(disp_no)
+
+        # Get Frame Buffer Driver
+        drivers = ['fbcon', 'directfb', 'svgalib']
+        found = False
+        for driver in drivers:
+            if not os.getenv('SDL_VIDEODRIVER'):
+                os.putenv('SDL_VIDEODRIVER', driver)
+            try:
+                pygame.display.init()
+            except pygame.error:
+                print 'Driver: {0} failed'.format(driver)
+                continue
+            found = True
+            break
+
+        if not found:
+            raise Exception('No suitable video driver found!')
 
         # Initialize Pygame Window
         pygame.init()
-        self.screen = pygame.display.set_mode((self.window_width, self.window_height))
+        self.window_width = pygame.display.Info().current_w
+        self.window_height = pygame.display.Info().current_h
+        print "Framebuffer size: %d x %d" % (self.window_width, self.window_height)
+        self.screen = pygame.display.set_mode((self.window_width, self.window_height), pygame.FULLSCREEN)
         pygame.display.set_caption('Pi Field Recorder')
-        pygame.mouse.set_visible(1)
+        pygame.mouse.set_visible(0)
+        self.screen.fill((0, 0, 0))
 
         # Setup Background
         self.background = pygame.Surface(self.screen.get_size())
@@ -64,25 +90,22 @@ class AppViewPygame(AppView):
         posy = (self.controls_height - self.button_height) / 2
 
         posx = padding_button
-
         self.play_button = PygameButton(normal_image="button-play.gif", active_image="button-play-active.gif", disabled_image="button-play-inactive.gif", pos=(posx, posy))
 
         posx += self.button_width + padding_button
-
         self.pause_button = PygameButton(normal_image="button-pause.gif", active_image="button-pause-active.gif", disabled_image="button-pause-inactive.gif", pos=(posx, posy))
 
         posx += self.button_width + padding_button
-
         self.stop_button = PygameButton(normal_image="button-stop.gif", active_image="button-stop-active.gif", disabled_image="button-stop-inactive.gif", pos=(posx, posy))
 
         posx += self.button_width + padding_button
-
         self.record_button = PygameButton(normal_image="button-record.gif", active_image="button-record-active.gif", disabled_image="button-record-inactive.gif", pos=(posx, posy))
 
         self.buttons = pygame.sprite.RenderPlain((self.play_button, self.pause_button, self.stop_button, self.record_button))
 
         # Setup Fonts
         if pygame.font:
+            pygame.font.init()
             self.label_font = pygame.font.Font(self.label_font_family, self.label_font_size)
             self.label_font_small = pygame.font.Font(self.label_font_family, self.label_font_size_small)
 
