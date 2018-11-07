@@ -341,14 +341,14 @@ class TkinterMeter(Canvas):
     def set_color(self, color='#ffffff'):
         self._color = color
 
-    def set_avg_level(self, level=0):
+    def set_avg_level(self, level=0.0):
         if level < 0.0:
             level = 0.0
         if level > 1.0:
             level = 1.0
         self._avg_level = level
 
-    def set_max_level(self, level=0):
+    def set_max_level(self, level=0.0):
         if level < 0.0:
             level = 0.0
         if level > 1.0:
@@ -380,7 +380,7 @@ class TkinterMeter(Canvas):
             self._max_rectangle_id = self.create_rectangle(0, max_pos, self.width, max_pos + 3, fill=self._color)
 
         except:
-            print('Failed to render Meter')
+            print('Failed to render TkinterMeter')
             return False
 
         return True
