@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Pi Field Recorder: Battery-operated field recorder designed for use with the Audio Injector Octo and piTFT touch screen.
-
 import urwid
-from audio import Audio
+from app.view import AppView
 
-class AppView(urwid.WidgetWrap):
+class AppViewUrwid(AppView):
     # Color Palette
     palette = [
         ('window', 'light green', 'black'),
@@ -35,8 +33,23 @@ class AppView(urwid.WidgetWrap):
     button_height = 64
 
     def __init__(self, controller):
-        self.controller = controller
-        urwid.WidgetWrap.__init__(self, self.main_window())
+        AppView.__init__(self, controller)
+        self.widget = urwid.WidgetWrap(self.main_window())
+
+    def run(self):
+        self.loop = urwid.MainLoop(self.widget, self.palette, unhandled_input=self.key_input)
+        self.loop.run()
+
+    def key_input(self, key):
+        if key in ('q', 'Q', 'esc'):
+            self.controller.destroy()
+
+    def destroy(self):
+        # Stop Urwid Loop
+        raise urwid.ExitMainLoop()
+
+    def update(self):
+        self.loop.draw_screen()
 
     # GUI Elements
 
@@ -46,7 +59,7 @@ class AppView(urwid.WidgetWrap):
         return w
 
     def button_control(self, text, action=None):
-        w = AppButton(text, self.on_button, action)
+        w = UrwidButton(text, self.on_button, action)
         w = urwid.Padding(w, ('fixed left', 1), ('fixed right', 1))
         w = urwid.AttrMap(w, 'button disabled', 'button disabled')
         return w
@@ -176,78 +189,7 @@ class AppView(urwid.WidgetWrap):
         elif action == 'record':
             self.controller.record()
 
-class AppController:
-
-    # Audio Settings
-    audio_channels_in = 6
-    audio_channels_out = 8
-
-    def __init__(self):
-        # Initialize Audio
-        self.audio = Audio(self, 0, 0, 44100, 256)
-        self.audio.start()
-
-        # Initialize App Window
-        self.view = AppView(self)
-        self.initial_view()
-
-    def run(self):
-        self.loop = urwid.MainLoop(self.view, self.view.palette, unhandled_input=self.key_input)
-        self.loop.run()
-
-    def initial_view(self):
-        self.view.update_state('none')
-
-        levels = {'input': [], 'output': []}
-        max_levels = {'input': [], 'output': []}
-        for i in range(0, self.audio_channels_in):
-            levels['input'].append(float(i + 1) / float(self.audio_channels_in + 1))
-            max_levels['input'].append(float(i + 1) / float(self.audio_channels_in))
-        for i in range(0, self.audio_channels_out):
-            levels['output'].append(float(i + 1) / float(self.audio_channels_out + 1))
-            max_levels['output'].append(float(i + 1) / float(self.audio_channels_out))
-
-        self.view.update_levels(levels, max_levels)
-
-    def key_input(self, key):
-        if key in ('q', 'Q', 'esc'):
-            self.exit()
-
-    # Audio Wrapper Methods
-
-    def play(self):
-        return self.audio.play()
-
-    def pause(self):
-        return self.audio.pause()
-
-    def stop(self):
-        return self.audio.stop()
-
-    def record(self):
-        return self.audio.record()
-
-    # Audio Events
-
-    def state_update(self, state):
-        self.view.update_state(state)
-
-    def audio_update(self, avg_levels, max_levels):
-        self.view.update_levels(avg_levels, max_levels)
-
-    # Window Methods
-
-    def update(self):
-        self.loop.draw_screen()
-
-    def exit(self):
-        # Deinitialize Audio
-        self.audio.destroy()
-
-        # Stop Urwid Loop
-        raise urwid.ExitMainLoop()
-
-class AppButton(urwid.WidgetWrap):
+class UrwidButton(urwid.WidgetWrap):
     _border_char = u'─'
     def __init__(self, label, on_press=None, user_data=None):
         min_width = 12
@@ -271,7 +213,7 @@ class AppButton(urwid.WidgetWrap):
         # Hidden button hack
         self._hidden_button = urwid.Button('hidden %s' % label, on_press, user_data)
 
-        super(AppButton, self).__init__(self.widget)
+        super(UrwidButton, self).__init__(self.widget)
 
     def selectable(self):
         return True
@@ -281,9 +223,3 @@ class AppButton(urwid.WidgetWrap):
 
     def mouse_event(self, *args, **kw):
         return self._hidden_button.mouse_event(*args, **kw)
-
-def main():
-    AppController().run()
-
-if __name__ == '__main__':
-    main()

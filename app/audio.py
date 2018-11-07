@@ -162,12 +162,12 @@ class Audio(threading.Thread):
         if indata.any():
             for i in range(0, self.channels):
                 inchandata = indata[:, i]
-                self._levels['input'][i] = self._calculate_level(inchandata) # numpy.abs(numpy.max(inchandata) - numpy.min(inchandata)) / 2
+                self._levels['input'][i] = self._calculate_level(inchandata)
 
         if outdata.any():
             for i in range(0, self.channels):
                 outchandata = outdata[:, i]
-                self._levels['output'][i] = self._calculate_level(outchandata) # numpy.abs(numpy.max(outchandata) - numpy.min(outchandata)) / 2
+                self._levels['output'][i] = self._calculate_level(outchandata)
 
         # Calculate Averages
         self._calculate_averages('input')
