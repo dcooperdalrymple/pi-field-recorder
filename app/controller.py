@@ -4,11 +4,11 @@ class AppController:
 
     # Audio Settings
     audio_channels_in = 6
-    audio_channels_out = 8
-    audio_device_in = 9
-    audio_device_out = 9
+    audio_channels_out = 2
+    audio_device_in = 0
+    audio_device_out = 0
     audio_samplerate = 44100
-    audio_buffersize = 256
+    audio_buffersize = 1024
 
     def __init__(self, view):
         # Initialize App Window

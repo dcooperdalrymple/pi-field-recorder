@@ -49,6 +49,7 @@ class Audio(threading.Thread):
         # Audio Thread Settings
         self._state = 'none' # 'none', 'play', 'play_pause', 'record', 'record_pause'
         self._passthrough = True
+        self._mixdown = True
         self._destroy = False
 
         # Initialize Level Arrays
@@ -91,6 +92,13 @@ class Audio(threading.Thread):
 
     def get_passthrough(self):
         return self._passthrough
+
+    def set_mixdown(self, mixdown=True):
+        self._mixdown = mixdown
+        return True
+
+    def get_mixdown(self):
+        return self._mixdown
 
     def get_levels(self):
         return self._levels
@@ -157,7 +165,11 @@ class Audio(threading.Thread):
 
         # Audio Pass-Through
         if self._passthrough == True:
-            outdata[:] = indata
+            if self._mixdown == True and self.channels >= 2: # Mix down audio to stereo
+                outdata[:, 0] = self._calculate_mix(indata[:, ::2]) # Left/even channels
+                outdata[:, 1] = self._calculate_mix(indata[:, 1::2]) # Right/odd channels
+            else:
+                outdata[:] = indata
 
         if indata.any():
             for i in range(0, self.channels):
@@ -197,6 +209,25 @@ class Audio(threading.Thread):
                 self._max_levels[device][i] = max_level
             elif max_level < self._max_levels[device][i]:
                 self._max_levels[device][i] = max(self._max_levels[device][i] - self._max_interval, 0.0)
+
+    def _calculate_mix(self, data):
+        if numpy.shape(data)[1] <= 1:
+            return data[:, 0]
+
+        mix = data[:, 0]
+        for i in range(0, numpy.shape(data)[0]):
+            for j in range(1, numpy.shape(data)[1]):
+                mix[i] = self.__calculate_mix(mix[i], data[i, j])
+
+        return mix
+
+    def __calculate_mix(self, a, b):
+        if a < 0.0 and b < 0.0:
+            return (a + b) - (a * b / -1.0)
+        elif a > 0.0 and b > 0.0:
+            return (a + b) - (a * b / 1.0)
+        else:
+            return a + b
 
     def run(self):
         self.set_state('none') # Send initial state update
