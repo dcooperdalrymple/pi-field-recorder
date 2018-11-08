@@ -8,6 +8,7 @@ from app.view import AppView
 class AppViewPygame(AppView):
 
     # Frames
+    window_fullscreen = False
     window_width = 320
     window_height = 240
     window_bg = (0, 0, 0)
@@ -15,6 +16,7 @@ class AppViewPygame(AppView):
     meters_height = 144
     meters_inputs_width = 140
     meters_outputs_width = 180
+    meters_padding = 8
 
     # Labels
     label_fg = (0, 164, 0)
@@ -31,7 +33,7 @@ class AppViewPygame(AppView):
 
     # Meters
     meter_label = 28
-    meter_sublabel = 20
+    meter_sublabel = 24
     meter_height = 96
     meter_width = 16
     meter_border = 1
@@ -44,36 +46,51 @@ class AppViewPygame(AppView):
         # Check pygame libraries
         if not pygame.font: print 'Warning: Fonts disabled'
 
-        # Get Display Number
-        disp_no = os.getenv("DISPLAY")
-        if disp_no:
-            print "Running under X display = {0}".format(disp_no)
+        if self.window_fullscreen == True:
 
-        # Get Frame Buffer Driver
-        drivers = ['fbcon', 'directfb', 'svgalib']
-        found = False
-        for driver in drivers:
-            if not os.getenv('SDL_VIDEODRIVER'):
-                os.putenv('SDL_VIDEODRIVER', driver)
-            try:
-                pygame.display.init()
-            except pygame.error:
-                print 'Driver: {0} failed'.format(driver)
-                continue
-            found = True
-            break
+            # Get Display Number
+            disp_no = os.getenv("DISPLAY")
+            if disp_no:
+                print "Running under X display = {0}".format(disp_no)
 
-        if not found:
-            raise Exception('No suitable video driver found!')
+            # Get Frame Buffer Driver
+            drivers = ['fbcon', 'directfb', 'svgalib']
+            found = False
+            for driver in drivers:
+                if not os.getenv('SDL_VIDEODRIVER'):
+                    os.putenv('SDL_VIDEODRIVER', driver)
+                try:
+                    pygame.display.init()
+                except pygame.error:
+                    print 'Driver: {0} failed'.format(driver)
+                    continue
+                found = True
+                break
 
-        # Initialize Pygame Window
-        pygame.init()
-        self.window_width = pygame.display.Info().current_w
-        self.window_height = pygame.display.Info().current_h
-        print "Framebuffer size: %d x %d" % (self.window_width, self.window_height)
-        self.screen = pygame.display.set_mode((self.window_width, self.window_height), pygame.FULLSCREEN)
+            if not found:
+                raise Exception('No suitable video driver found!')
+
+            # Window Sizing
+            height_ratio = float(pygame.display.Info().current_h) / float(self.window_height)
+            self.window_width = pygame.display.Info().current_w
+            self.window_height = pygame.display.Info().current_h
+
+            self.controls_height = self.controls_height * height_ratio
+            self.meters_height = self.meters_height * height_ratio
+
+            # Initialize Pygame Window
+            pygame.init()
+            print "Framebuffer size: %d x %d" % (self.window_width, self.window_height)
+            self.screen = pygame.display.set_mode((self.window_width, self.window_height), pygame.FULLSCREEN)
+            pygame.mouse.set_visible(0)
+
+        else:
+
+            pygame.init()
+            self.screen = pygame.display.set_mode((self.window_width, self.window_height))
+            pygame.mouse.set_visible(1)
+
         pygame.display.set_caption('Pi Field Recorder')
-        pygame.mouse.set_visible(0)
         self.screen.fill((0, 0, 0))
 
         # Setup Background
@@ -103,6 +120,13 @@ class AppViewPygame(AppView):
 
         self.buttons = pygame.sprite.RenderPlain((self.play_button, self.pause_button, self.stop_button, self.record_button))
 
+        # Calculate Meter Positioning
+        self.meter_width = (self.window_width - self.meters_padding * (self.controller.audio_channels_in + self.controller.audio_channels_out + 6)) / (self.controller.audio_channels_in + self.controller.audio_channels_out)
+        self.meter_height = self.meters_height - self.meter_label - self.meter_sublabel
+
+        self.meters_inputs_width = (self.meter_width + self.meters_padding) * self.controller.audio_channels_in + 3 * self.meters_padding
+        self.meters_outputs_width = (self.meter_width + self.meters_padding) * self.controller.audio_channels_out + 3 * self.meters_padding
+
         # Setup Fonts
         if pygame.font:
             pygame.font.init()
@@ -123,11 +147,9 @@ class AppViewPygame(AppView):
 
         # Create Input Meters
         self.input_meters = []
-        padding_input_meter_x = (self.meters_inputs_width - self.meter_width * self.controller.audio_channels_in) / (self.controller.audio_channels_in + 1)
-        padding_input_meter_y = (self.meters_height - self.meter_label - self.meter_sublabel - self.meter_height) / 2
 
-        posx = padding_input_meter_x
-        posy = self.controls_height + padding_input_meter_y + self.meter_label
+        posx = self.meters_padding * 2
+        posy = self.controls_height + self.meter_label
 
         for i in range(0, self.controller.audio_channels_in):
             self.input_meters.append(PygameMeter(pos=(posx, posy), size=(self.meter_width, self.meter_height)))
@@ -141,18 +163,16 @@ class AppViewPygame(AppView):
             # Draw sublabel
             if pygame.font:
                 text = self.label_font_small.render(str(i + 1), 1, self.label_fg)
-                textpos = text.get_rect(centerx=posx + self.meter_width / 2, centery=posy + self.meter_height + padding_input_meter_y + self.meter_sublabel / 2)
+                textpos = text.get_rect(centerx=posx + self.meter_width / 2, centery=posy + self.meter_height + self.meter_sublabel / 2)
                 self.background.blit(text, textpos)
 
-            posx += padding_input_meter_x + self.meter_width
+            posx += self.meter_width + self.meters_padding
 
         # Create Output Meters
         self.output_meters = []
-        padding_output_meter_x = (self.meters_outputs_width - self.meter_width * self.controller.audio_channels_out) / (self.controller.audio_channels_out + 1)
-        padding_output_meter_y = (self.meters_height - self.meter_label - self.meter_sublabel - self.meter_height) / 2
 
-        posx = self.meters_inputs_width + padding_output_meter_x
-        posy = self.controls_height + padding_output_meter_y + self.meter_label
+        posx = self.meters_inputs_width + self.meters_padding * 2
+        posy = self.controls_height + self.meter_label
 
         for i in range(0, self.controller.audio_channels_out):
             self.output_meters.append(PygameMeter(pos=(posx, posy), size=(self.meter_width, self.meter_height)))
@@ -166,10 +186,10 @@ class AppViewPygame(AppView):
             # Draw sublabel
             if pygame.font:
                 text = self.label_font_small.render(str(i + 1), 1, self.label_fg)
-                textpos = text.get_rect(centerx=posx + self.meter_width / 2, centery=posy + self.meter_height + padding_output_meter_y + self.meter_sublabel / 2)
+                textpos = text.get_rect(centerx=posx + self.meter_width / 2, centery=posy + self.meter_height + self.meter_sublabel / 2)
                 self.background.blit(text, textpos)
 
-            posx += padding_output_meter_x + self.meter_width
+            posx += self.meter_width + self.meters_padding
 
         self.meters = pygame.sprite.RenderPlain(tuple(self.input_meters + self.output_meters))
 

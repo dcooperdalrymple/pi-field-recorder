@@ -16,6 +16,7 @@ class AppViewTkinter(AppView):
     meters_bg = '#000000' # '#181818'
     meters_inputs_width = 140
     meters_outputs_width = 180
+    meters_padding = 8
 
     # Labels
     label_fg = '#00a400' # '#ffffff'
@@ -31,16 +32,12 @@ class AppViewTkinter(AppView):
     button_active_fg = '#00e400'
 
     # Meters
-    meter_label = 18
-    meter_sublabel = 16
+    meter_label = 24
+    meter_sublabel = 24
     meter_height = 96
     meter_width = 16
     meter_border = 1
     meter_color = '#00a400'
-
-    # Audio Settings
-    audio_channels_in = 6
-    audio_channels_out = 8
 
     def __init__(self, controller):
         AppView.__init__(self, controller)
@@ -115,6 +112,13 @@ class AppViewTkinter(AppView):
         self.record_button.place(relx=0, rely=0, x=posx, y=posy, anchor='nw')
         self.record_button.bind('<Button-1>', self.record)
 
+        # Calculate Meter Positioning
+        self.meter_width = (self.window_width - self.meters_padding * (self.controller.audio_channels_in + self.controller.audio_channels_out + 6)) / (self.controller.audio_channels_in + self.controller.audio_channels_out)
+        self.meter_height = self.meters_height - self.meter_label - self.meter_sublabel
+
+        self.meters_inputs_width = (self.meter_width + self.meters_padding) * self.controller.audio_channels_in + 3 * self.meters_padding
+        self.meters_outputs_width = (self.meter_width + self.meters_padding) * self.controller.audio_channels_out + 3 * self.meters_padding
+
         # Setup Meter Frame
         self.meter_frame = Frame(self.master, bg=self.meters_bg, width=self.window_width, height=self.meters_height)
         self.meter_frame.place(relx=0, rely=0, anchor='nw', x=0, y=self.controls_height)
@@ -135,11 +139,10 @@ class AppViewTkinter(AppView):
 
         # Create Input Meters
         self.input_meters = []
-        padding_input_meter_x = (self.meters_inputs_width - self.meter_width * self.controller.audio_channels_in) / (self.controller.audio_channels_in + 1)
-        padding_input_meter_y = (self.meters_height - self.meter_label - self.meter_sublabel - self.meter_height) / 2
 
-        posx = padding_input_meter_x
-        posy = padding_input_meter_y + self.meter_label
+        posx = self.meters_padding * 2
+        posy = self.meter_label
+
         for i in range(0, self.controller.audio_channels_in):
             self.input_meters.append(TkinterMeter(master=self.input_frame, width=self.meter_width, height=self.meter_height, bg=self.window_bg, bd=0, highlightthickness=1, highlightbackground=self.meter_color, relief=FLAT))
 
@@ -152,17 +155,16 @@ class AppViewTkinter(AppView):
             self.input_meters[i].draw()
 
             input_label = Label(master=self.input_frame, text=str(i + 1), fg=self.label_fg, bg=self.meters_bg, font=(self.label_font_family, self.label_font_size_small))
-            input_label.place(anchor='center', x=posx + self.meter_width / 2, y=posy + self.meter_height + padding_input_meter_y + self.meter_sublabel / 2)
+            input_label.place(anchor='center', x=posx + self.meter_width / 2, y=posy + self.meter_height + self.meter_sublabel / 2)
 
-            posx += padding_input_meter_x + self.meter_width
+            posx += self.meter_width + self.meters_padding
 
         # Create Output Meters
         self.output_meters = []
-        padding_output_meter_x = (self.meters_outputs_width - self.meter_width * self.controller.audio_channels_out) / (self.controller.audio_channels_out + 1)
-        padding_output_meter_y = (self.meters_height - self.meter_label - self.meter_sublabel - self.meter_height) / 2
 
-        posx = padding_output_meter_x
-        posy = padding_output_meter_y + self.meter_label
+        posx = self.meters_padding * 2
+        posy = self.meter_label
+
         for i in range(0, self.controller.audio_channels_out):
             self.output_meters.append(TkinterMeter(master=self.output_frame, width=self.meter_width, height=self.meter_height, bg=self.window_bg, bd=0, highlightthickness=1, highlightbackground=self.meter_color, relief=FLAT))
 
@@ -175,9 +177,9 @@ class AppViewTkinter(AppView):
             self.output_meters[i].draw()
 
             output_label = Label(master=self.output_frame, text=str(i + 1), fg=self.label_fg, bg=self.meters_bg, font=(self.label_font_family, self.label_font_size_small))
-            output_label.place(anchor='center', x=posx + self.meter_width / 2, y=posy + self.meter_height + padding_output_meter_y + self.meter_sublabel / 2)
+            output_label.place(anchor='center', x=posx + self.meter_width / 2, y=posy + self.meter_height + self.meter_sublabel / 2)
 
-            posx += padding_output_meter_x + self.meter_width
+            posx += self.meter_width + self.meters_padding
 
     def run(self):
         self.master.mainloop()
